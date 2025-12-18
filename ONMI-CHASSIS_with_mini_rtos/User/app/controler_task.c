@@ -2,6 +2,7 @@
 #include "chassis_task.h"
 #include "tim.h"
 #include "EZ_RTOS.h"
+#include "bsp_fdcan.h"
 ctrl_mode_e ctrl_mode;
 
 IC_t ic2_ch1 = {0};
@@ -29,6 +30,8 @@ int abs(int x) {
 
 void remoteHandler(void)
 {
+	if(ctrl_mode != AUTO_MODE)
+	{
 	 ic2_ch1.signal_effective = (ic2_ch1.high < 645||ic2_ch1.high > 655)?1:0;
 	 ic1_ch1.signal_effective = (ic1_ch1.high < 645||ic1_ch1.high > 655)?1:0;
 	 ic2_ch3.signal_effective = (ic2_ch3.high < 645||ic2_ch3.high > 655)?1:0;
@@ -39,10 +42,22 @@ void remoteHandler(void)
 	 
     // 根据拨码开关(swd)的位置设置控制模式
     // 当swd小于0时为保护模式，等于0时为遥控模式，大于0时为自动模式
-    ctrl_mode =
-    (ic1_ch3.high < 645) ? PROTECT_MODE :
-    (ic1_ch3.high > 655) ? AUTO_MODE :
-    REMOTER_MODE;
+//    ctrl_mode =
+//    (ic1_ch3.high < 645) ? PROTECT_MODE :
+//    (ic1_ch3.high > 655) ? AUTO_MODE :
+//    REMOTER_MODE;
+	}
+	else
+	{
+		chassis.spd_input.vy = can_spd_input.vy*0.008f;
+		chassis.spd_input.vx = can_spd_input.vx*0.008f;
+		chassis.spd_input.vw = can_spd_input.vw*0.008f;
+		
+//		ctrl_mode =
+//    (ic1_ch3.high < 645) ? PROTECT_MODE :
+//    (ic1_ch3.high > 655) ? AUTO_MODE :
+//    REMOTER_MODE;
+	}
 }
 
 static inline uint32_t diff(uint32_t now, uint32_t last, uint32_t arr)

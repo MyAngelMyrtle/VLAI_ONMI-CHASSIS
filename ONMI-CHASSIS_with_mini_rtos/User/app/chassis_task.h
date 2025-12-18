@@ -68,6 +68,7 @@ typedef struct
     /* data */
     float  x;
     float y;
+		float z;
 }odom_t;
 
 typedef struct
@@ -103,6 +104,11 @@ typedef struct
     float scale_ch2;
 }scale_t;
 
+void omni_odom_update(const float ds[4],
+                      float L,
+                      float *x,
+                      float *y,
+                      float *theta);
 
 /*******************OOP*********************************/
 extern chassis_t chassis;
@@ -114,5 +120,15 @@ void Chassis_ctrl(void);
 void mecanum_calc(float vx, float vy, float vw, float speed[]);
 float data_limit(float data, float max, float min);
 void Chassis_ctrl(void);
+void chassis_odom_calc(void);
+
+/* 根据 wheel_pos_move（counts）计算本次角增量（弧度） */
+float chassis_calc_dtheta_from_wheelpos(const int16_t wheel_pos_move[4], float L);
+/* 预测使用 wheel_pos_move 更新后的航向角（弧度），不改变 chassis.odom.z */
+float chassis_predict_yaw_from_wheelpos(const int16_t wheel_pos_move[4], float L);
+
+#define PI_F        3.14159265l
+#define SQRT2_F     1.41421356l
+#define ENCODER_MAX 65535.0l
 
 #endif

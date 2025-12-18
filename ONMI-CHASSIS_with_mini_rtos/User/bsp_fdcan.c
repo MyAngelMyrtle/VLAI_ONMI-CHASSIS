@@ -1,8 +1,9 @@
 #include "bsp_fdcan.h"
 #include "drv_dmmotor.h"
-
+#include "chassis_task.h"
 FDCAN_RxHeaderTypeDef rx_fifo0_message, rx_fifo1_message;
 uint8_t rx_fifo0_data[64], rx_fifo1_data[64];
+can_spd_input_t can_spd_input;
 /**
 ************************************************************************
 * @brief:      	bsp_can_init(void)
@@ -62,6 +63,19 @@ void can_filter_init(void)
 	HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0); // 使能邮箱0新消息中断
 	HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_RX_FIFO1_NEW_MESSAGE, 0); // 使能邮箱1新消息中断
 	HAL_FDCAN_Start(&hfdcan1);
+	
+	fdcan_filter.IdType = FDCAN_STANDARD_ID; // 标准帧
+	fdcan_filter.FilterIndex = 0;
+	fdcan_filter.FilterType = FDCAN_FILTER_DUAL;
+	fdcan_filter.FilterID1 = 0x050;
+	fdcan_filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO1; // 通过过滤后给邮箱0
+	HAL_FDCAN_ConfigFilter(&hfdcan2, &fdcan_filter);
+
+	HAL_FDCAN_ConfigGlobalFilter(&hfdcan2, FDCAN_REJECT, FDCAN_REJECT, FDCAN_REJECT_REMOTE, FDCAN_REJECT_REMOTE);
+	HAL_FDCAN_ActivateNotification(&hfdcan2, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0); // 使能邮箱0新消息中断
+	HAL_FDCAN_ActivateNotification(&hfdcan2, FDCAN_IT_RX_FIFO1_NEW_MESSAGE, 0); // 使能邮箱1新消息中断
+	HAL_FDCAN_Start(&hfdcan2);
+	
 }
 /**
 ************************************************************************
@@ -103,8 +117,6 @@ uint8_t fdcanx_send_data(hcan_t *hfdcan, uint16_t id, uint8_t *data, uint32_t le
 * @details:    	接收数据
 ************************************************************************
 **/
-
-
 void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 {
   if ((RxFifo0ITs & FDCAN_IT_RX_FIFO0_NEW_MESSAGE) != RESET)
@@ -142,13 +154,31 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 	}
 }
 
+void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo1ITs)
+{
+  if ((RxFifo1ITs & FDCAN_IT_RX_FIFO1_NEW_MESSAGE) != RESET)
+	{
+		HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO1, &rx_fifo1_message, rx_fifo1_data);
+		if (hfdcan->Instance == FDCAN2)
+		{
+			switch (rx_fifo1_message.Identifier)
+			{
+			case (0x050):
+			{
+				chassis_automode_msg_handle();
+				break;
+			}
+			default:
+				break;
+			}
+		}
+		HAL_FDCAN_ActivateNotification(hfdcan, FDCAN_IT_RX_FIFO1_NEW_MESSAGE, 0);
+	}
+}
 
-
-
-
-
-
-
-
-
-
+void chassis_automode_msg_handle(void)
+{
+ can_spd_input.vx =(int16_t)(rx_fifo1_data[1]<<8|rx_fifo1_data[0]);
+ can_spd_input.vy =(int16_t)(rx_fifo1_data[3]<<8|rx_fifo1_data[2]);
+ can_spd_input.vw =(int16_t)(rx_fifo1_data[5]<<8|rx_fifo1_data[4]);
+}

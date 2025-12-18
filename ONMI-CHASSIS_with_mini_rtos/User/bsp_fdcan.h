@@ -12,6 +12,16 @@ uint8_t fdcanx_receive(hcan_t *hfdcan, uint16_t *rec_id, uint8_t *buf);
 void fdcan1_rx_callback(void);
 void fdcan2_rx_callback(void);
 void fdcan3_rx_callback(void);
+void chassis_automode_msg_handle(void);
+
+typedef struct
+{
+	float vy;
+	float vx;
+	float vw;
+}can_spd_input_t;
+
+extern can_spd_input_t can_spd_input;
 
 #endif /* __BSP_FDCAN_H_ */
 
