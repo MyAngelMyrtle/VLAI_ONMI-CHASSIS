@@ -3,7 +3,6 @@
 #include "drv_dmmotor.h"
 #include "pid.h"
 #include "EZ_RTOS.H"
-#include "tim.h"
 // Simplified RTOS in C with task delay support
 #include <stdint.h>
 #include <stdio.h>
@@ -86,17 +85,4 @@ void rtos_start(void)
             }
         }
     }
-}
-
-
-void delay_us(uint32_t us)
-{
-    // Set timer period for desired delay in microseconds
-    __HAL_TIM_SET_AUTORELOAD(&htim3, us - 1); //????????period*?????
-    HAL_TIM_Base_Start(&htim3);               // start the timer
-
-    while (__HAL_TIM_GET_FLAG(&htim3, TIM_FLAG_UPDATE) == RESET)
-        ;
-    __HAL_TIM_CLEAR_FLAG(&htim3, TIM_FLAG_UPDATE); //???????
-    HAL_TIM_Base_Stop(&htim3);                     // Stop the timer
 }

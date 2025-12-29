@@ -1,22 +1,22 @@
 #include "controler_task.h"
 #include "chassis_task.h"
-#include "tim.h"
 #include "EZ_RTOS.h"
 #include "bsp_fdcan.h"
+#include "uart_bsp.h"
+#include "usart.h"
+#include "gpio.h"
 ctrl_mode_e ctrl_mode;
-
-IC_t ic2_ch1 = {0};
-IC_t ic2_ch3 = {0};
-IC_t ic1_ch1 = {0};
-IC_t ic1_ch3 = {0};
 
 #define ARR1 20000
 #define ARR2 20000
 
-#define defaultCH 655
+#define defaultCH 992
+#define MaxCH 1792
+#define MinCH 192
 
-uint16_t TIM1_Detecter_Buf[2];
-uint16_t TIM2_Detecter_Buf[1];
+const float sc = 0.02f;
+
+uint8_t ch_signal_effective[10];
   
 void controler_task(void)
 {
@@ -30,116 +30,51 @@ int abs(int x) {
 
 void remoteHandler(void)
 {
-	if(ctrl_mode != AUTO_MODE)
+		ctrl_mode =
+    (remoter.rc.ch[7] < (defaultCH - 20)) ? PROTECT_MODE :
+    (remoter.rc.ch[7] > (defaultCH + 20)) ? AUTO_MODE :
+    REMOTER_MODE;
+		if(remoter.rc.ch[7] == 0)
+		{
+			HAL_UARTEx_ReceiveToIdle_DMA(&huart5, rx_buff, BUFF_SIZE*2);
+			ctrl_mode = PROTECT_MODE;
+		}
+	if(ctrl_mode == REMOTER_MODE)
 	{
-	 ic2_ch1.signal_effective = (ic2_ch1.high < 645||ic2_ch1.high > 655)?1:0;
-	 ic1_ch1.signal_effective = (ic1_ch1.high < 645||ic1_ch1.high > 655)?1:0;
-	 ic2_ch3.signal_effective = (ic2_ch3.high < 645||ic2_ch3.high > 655)?1:0;
+	 ch_signal_effective[1] = (remoter.rc.ch[1] < (defaultCH - 20)||remoter.rc.ch[1] > (defaultCH + 20))?1:0;
+	 ch_signal_effective[0] = (remoter.rc.ch[0] < (defaultCH - 20)||remoter.rc.ch[0] > (defaultCH + 20))?1:0;
+	 ch_signal_effective[3] = (remoter.rc.ch[3] < (defaultCH - 20)||remoter.rc.ch[3] > (defaultCH + 20))?1:0;
 	 
-	 chassis.spd_input.vy = (ic2_ch1.signal_effective)?(ic2_ch1.high - CH_ORIGINAL_VALUE)*0.06f:0;
-	 chassis.spd_input.vx = (ic1_ch1.signal_effective)?(ic1_ch1.high - CH_ORIGINAL_VALUE)*0.06f:0;
-	 chassis.spd_input.vw = (ic2_ch3.signal_effective)?(ic2_ch3.high - CH_ORIGINAL_VALUE)*0.06f:0;
+	 chassis.spd_input.vy = (float)((ch_signal_effective[1])?(remoter.rc.ch[1] - defaultCH)*sc:0);
+	 chassis.spd_input.vx = (float)((ch_signal_effective[0])?(remoter.rc.ch[0] - defaultCH)*sc:0);
+	 chassis.spd_input.vw = (float)((ch_signal_effective[3])?(remoter.rc.ch[3] - defaultCH)*sc:0);
 	 
-    // 根据拨码开关(swd)的位置设置控制模式
-    // 当swd小于0时为保护模式，等于0时为遥控模式，大于0时为自动模式
-//    ctrl_mode =
-//    (ic1_ch3.high < 645) ? PROTECT_MODE :
-//    (ic1_ch3.high > 655) ? AUTO_MODE :
-//    REMOTER_MODE;
+	 if(remoter.rc.ch[4] > (defaultCH + 200))
+			HAL_GPIO_WritePin(GPIOA,GPIO_PIN_2,GPIO_PIN_RESET);
+	 else
+			HAL_GPIO_WritePin(GPIOA,GPIO_PIN_2,GPIO_PIN_SET);
+	 if(remoter.rc.ch[4] < (defaultCH - 200))
+			HAL_GPIO_WritePin(GPIOA,GPIO_PIN_0,GPIO_PIN_RESET);
+	 else
+			HAL_GPIO_WritePin(GPIOA,GPIO_PIN_0,GPIO_PIN_SET);
 	}
-	else
+	else if(ctrl_mode == AUTO_MODE)
 	{
 		chassis.spd_input.vy = can_spd_input.vy*0.008f;
 		chassis.spd_input.vx = can_spd_input.vx*0.008f;
 		chassis.spd_input.vw = can_spd_input.vw*0.008f;
 		
-//		ctrl_mode =
-//    (ic1_ch3.high < 645) ? PROTECT_MODE :
-//    (ic1_ch3.high > 655) ? AUTO_MODE :
-//    REMOTER_MODE;
+		if(can_spd_input.updown == 2)
+			HAL_GPIO_WritePin(GPIOA,GPIO_PIN_2,GPIO_PIN_RESET);
+		else
+			HAL_GPIO_WritePin(GPIOA,GPIO_PIN_2,GPIO_PIN_SET);
+		if(can_spd_input.updown == 1)
+			HAL_GPIO_WritePin(GPIOA,GPIO_PIN_0,GPIO_PIN_RESET);
+		else
+			HAL_GPIO_WritePin(GPIOA,GPIO_PIN_0,GPIO_PIN_SET);
 	}
 }
 
-static inline uint32_t diff(uint32_t now, uint32_t last, uint32_t arr)
-{
-    return (now >= last) ? (now - last) : (now + (arr + 1 - last));
-}
 
-/********************* 输入捕获回调 *********************/
-void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
-{
-    /* ---------------- TIM2 CH1 ---------------- */
-    if (htim->Instance == TIM2 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
-    {
-        uint32_t val = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
 
-        if (ic2_ch1.state == 0)   // 等上升沿
-        {
-            ic2_ch1.rise = val;
-            ic2_ch1.state = 1;
-            __HAL_TIM_SET_CAPTUREPOLARITY(htim, TIM_CHANNEL_1, TIM_INPUTCHANNELPOLARITY_FALLING);
-        }
-        else                     // 下降沿 → 计算高电平
-        {
-            ic2_ch1.high = diff(val, ic2_ch1.rise, ARR2);
-            ic2_ch1.state = 0;
-            __HAL_TIM_SET_CAPTUREPOLARITY(htim, TIM_CHANNEL_1, TIM_INPUTCHANNELPOLARITY_RISING);
-        }
-    }
-		/* ---------------- TIM2 CH3 ---------------- */
-    if (htim->Instance == TIM2 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_3)
-    {
-        uint32_t val = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_3);
 
-        if (ic2_ch3.state == 0)   // 等上升沿
-        {
-            ic2_ch3.rise = val;
-            ic2_ch3.state = 1;
-            __HAL_TIM_SET_CAPTUREPOLARITY(htim, TIM_CHANNEL_3, TIM_INPUTCHANNELPOLARITY_FALLING);
-        }
-        else                     // 下降沿 → 计算高电平
-        {
-            ic2_ch3.high = diff(val, ic2_ch3.rise, ARR2);
-            ic2_ch3.state = 0;
-            __HAL_TIM_SET_CAPTUREPOLARITY(htim, TIM_CHANNEL_3, TIM_INPUTCHANNELPOLARITY_RISING);
-        }
-    }
-
-    /* ---------------- TIM1 CH1 ---------------- */
-    if (htim->Instance == TIM1 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
-    {
-        uint32_t val = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
-
-        if (ic1_ch1.state == 0)
-        {
-            ic1_ch1.rise = val;
-            ic1_ch1.state = 1;
-            __HAL_TIM_SET_CAPTUREPOLARITY(htim, TIM_CHANNEL_1, TIM_INPUTCHANNELPOLARITY_FALLING);
-        }
-        else
-        {
-            ic1_ch1.high = diff(val, ic1_ch1.rise, ARR1);
-            ic1_ch1.state = 0;
-            __HAL_TIM_SET_CAPTUREPOLARITY(htim, TIM_CHANNEL_1, TIM_INPUTCHANNELPOLARITY_RISING);
-        }
-    }
-
-    /* ---------------- TIM1 CH3 ---------------- */
-    if (htim->Instance == TIM1 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_3)
-    {
-        uint32_t val = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_3);
-
-        if (ic1_ch3.state == 0)
-        {
-            ic1_ch3.rise = val;
-            ic1_ch3.state = 1;
-            __HAL_TIM_SET_CAPTUREPOLARITY(htim, TIM_CHANNEL_3, TIM_INPUTCHANNELPOLARITY_FALLING);
-        }
-        else
-        {
-            ic1_ch3.high = diff(val, ic1_ch3.rise, ARR1);
-            ic1_ch3.state = 0;
-            __HAL_TIM_SET_CAPTUREPOLARITY(htim, TIM_CHANNEL_3, TIM_INPUTCHANNELPOLARITY_RISING);
-        }
-    }
-}

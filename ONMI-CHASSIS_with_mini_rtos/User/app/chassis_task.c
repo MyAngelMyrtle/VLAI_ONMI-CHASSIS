@@ -47,7 +47,7 @@ void chassis_init(void)
 
   for (uint8_t i = 0; i < 4; i++)
   {
-    PID_struct_init(&pid_chassis_spd[i], 2, 2, 0.0f,
+    PID_struct_init(&pid_chassis_spd[i], 3, 3, 0.0f,
                     0.000024f, 0.02f, 0.05f, 0, 0, Integral_Limit);
   }
 
@@ -177,7 +177,7 @@ void chassis_spd_distribution(void)
   for (uint8_t j = 0; j < 4; j++)
   {
     chassis.wheel_spd_ref[j] = chassis.wheel_spd_input[j];
-    chassis.wheel_spd_ref[j] = data_limit(chassis.wheel_spd_ref[j], 2.4f, -2.4f); // 电机转速最高到8900
+    chassis.wheel_spd_ref[j] = data_limit(chassis.wheel_spd_ref[j], 2.8f, -2.8f); // 电机转速最高到8900
   }
 
   chassis.odom.x += chassis.spd_fdb.vx * 0.001f;

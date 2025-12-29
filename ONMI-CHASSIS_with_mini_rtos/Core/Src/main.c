@@ -18,13 +18,15 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "dma.h"
 #include "fdcan.h"
 #include "memorymap.h"
-#include "tim.h"
+#include "usart.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "uart_bsp.h"
 #include "bsp_fdcan.h"
 #include "drv_dmmotor.h"
 #include "controler_task.h"
@@ -104,25 +106,19 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_FDCAN1_Init();
   MX_FDCAN2_Init();
   MX_FDCAN3_Init();
-  MX_TIM1_Init();
-  MX_TIM2_Init();
-  MX_TIM3_Init();
+  MX_UART5_Init();
   /* USER CODE BEGIN 2 */
+	SCB_DisableDCache();
 	can_filter_init();
 	chassis_init();
-	HAL_TIM_Base_Start_IT(&htim2);																					/* ??TIM2????????  */
-	HAL_TIM_IC_Start_IT(&htim2,TIM_CHANNEL_1);															/* ???????TIM2???????  */
-	HAL_TIM_Base_Start_IT(&htim2);																					/* ??TIM2????????  */
-	HAL_TIM_IC_Start_IT(&htim2,TIM_CHANNEL_3);	
-	HAL_TIM_Base_Start_IT(&htim1);																					/* ??TIM2????????  */
-	HAL_TIM_IC_Start_IT(&htim1,TIM_CHANNEL_1);
-	HAL_TIM_Base_Start_IT(&htim1);																					/* ??TIM2????????  */
-	HAL_TIM_IC_Start_IT(&htim1,TIM_CHANNEL_3);
+	HAL_UARTEx_ReceiveToIdle_DMA(&huart5, rx_buff, BUFF_SIZE*2);
   rtos_add_task(controler_task);
 	rtos_add_task(chassis_task);
+	
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -132,12 +128,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-		time++;
-		HAL_Delay(1000);
-		DM_ENABLE(&hfdcan1,0x021);
-		DM_ENABLE(&hfdcan1,0x022);
-		DM_ENABLE(&hfdcan1,0x023);
-		DM_ENABLE(&hfdcan1,0x024);
+//		time++;
    rtos_start();
   }
   /* USER CODE END 3 */

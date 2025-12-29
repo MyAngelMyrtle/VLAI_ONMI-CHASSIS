@@ -66,7 +66,7 @@ typedef struct
 typedef struct
 {
     /* data */
-    float  x;
+    float x;
     float y;
 		float z;
 }odom_t;

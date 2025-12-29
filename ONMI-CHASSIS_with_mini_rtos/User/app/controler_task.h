@@ -25,10 +25,7 @@ void user_timmer_handle(void);
 void ControlMsgHandle(void);
 void remoteHandler(void);
 void controler_task(void);
-#define TIM1_BUF 2
-#define TIM2_BUF 1
 
-#define CH_ORIGINAL_VALUE 654
 #define SPD_TRANSFORM_RATIO 1.5
 
 extern uint8_t lock_flag;

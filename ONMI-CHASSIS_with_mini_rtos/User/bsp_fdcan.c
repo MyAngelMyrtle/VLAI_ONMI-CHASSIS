@@ -204,4 +204,5 @@ void chassis_automode_msg_handle(void)
 	can_spd_input.vx =(int16_t)(rx_fifo1_data[1]<<8|rx_fifo1_data[0]);
 	can_spd_input.vy =(int16_t)(rx_fifo1_data[3]<<8|rx_fifo1_data[2]);
 	can_spd_input.vw =(int16_t)(rx_fifo1_data[5]<<8|rx_fifo1_data[4]);
+	can_spd_input.updown = rx_fifo1_data[6];
 }

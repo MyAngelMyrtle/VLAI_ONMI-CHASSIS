@@ -21,6 +21,7 @@ typedef struct
 	float vx;
 	float vw;
 	uint16_t rc_flag;
+	uint8_t updown;
 }can_spd_input_t;
 
 extern can_spd_input_t can_spd_input;
