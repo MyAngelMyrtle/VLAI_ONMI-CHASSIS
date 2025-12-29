@@ -13,12 +13,14 @@ void fdcan1_rx_callback(void);
 void fdcan2_rx_callback(void);
 void fdcan3_rx_callback(void);
 void chassis_automode_msg_handle(void);
+void msg_to_Host(float odx,float ody,float odz);
 
 typedef struct
 {
 	float vy;
 	float vx;
 	float vw;
+	uint16_t rc_flag;
 }can_spd_input_t;
 
 extern can_spd_input_t can_spd_input;

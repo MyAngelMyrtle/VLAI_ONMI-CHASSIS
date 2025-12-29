@@ -92,6 +92,10 @@ typedef struct
 		int16_t   rudder_angle_ref[4];
     int16_t   spd_error;
     int16_t   position_ref;
+		
+		uint16_t host_online;
+		uint16_t host_can_flag_handle;
+		uint16_t host_can_flag_handle_last;
 } chassis_t;
 
 typedef struct
@@ -121,6 +125,7 @@ void mecanum_calc(float vx, float vy, float vw, float speed[]);
 float data_limit(float data, float max, float min);
 void Chassis_ctrl(void);
 void chassis_odom_calc(void);
+void odom_update(odom_t *odom, float dx_body, float dy_body, float dtheta);
 
 /* 根据 wheel_pos_move（counts）计算本次角增量（弧度） */
 float chassis_calc_dtheta_from_wheelpos(const int16_t wheel_pos_move[4], float L);
@@ -130,5 +135,5 @@ float chassis_predict_yaw_from_wheelpos(const int16_t wheel_pos_move[4], float L
 #define PI_F        3.14159265l
 #define SQRT2_F     1.41421356l
 #define ENCODER_MAX 65535.0l
-
+#define RAD_2_ANGEL 57.2957795l
 #endif

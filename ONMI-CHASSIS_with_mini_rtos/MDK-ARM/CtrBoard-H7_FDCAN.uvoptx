@@ -238,32 +238,32 @@
         <Ww>
           <count>15</count>
           <WinNumber>1</WinNumber>
-          <ItemText>hfdcan2</ItemText>
+          <ItemText>can_spd_input</ItemText>
         </Ww>
         <Ww>
           <count>16</count>
           <WinNumber>1</WinNumber>
-          <ItemText>rx_fifo1_message</ItemText>
+          <ItemText>single_wheel_move</ItemText>
         </Ww>
         <Ww>
           <count>17</count>
           <WinNumber>1</WinNumber>
-          <ItemText>can_spd_input</ItemText>
+          <ItemText>\\CtrBoard_H7_FDCAN\../User/drv/drv_dmmotor.c\chassis_moto_data,0x0A</ItemText>
         </Ww>
         <Ww>
           <count>18</count>
           <WinNumber>1</WinNumber>
-          <ItemText>\\CtrBoard_H7_FDCAN\../User/bsp_fdcan.c\can_spd_input.vw</ItemText>
+          <ItemText>chassis.host_online,0x0A</ItemText>
         </Ww>
         <Ww>
           <count>19</count>
           <WinNumber>1</WinNumber>
-          <ItemText>tx_vw,0x0A</ItemText>
+          <ItemText>pid_chassis_spd</ItemText>
         </Ww>
         <Ww>
           <count>20</count>
           <WinNumber>1</WinNumber>
-          <ItemText>now_ms</ItemText>
+          <ItemText>last_odom_ms,0x0A</ItemText>
         </Ww>
       </WatchWindow1>
       <Tracepoint>
@@ -696,7 +696,7 @@
       <GroupNumber>5</GroupNumber>
       <FileNumber>29</FileNumber>
       <FileType>1</FileType>
-      <tvExp>0</tvExp>
+      <tvExp>1</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
       <PathWithFileName>..\User\bsp_fdcan.c</PathWithFileName>

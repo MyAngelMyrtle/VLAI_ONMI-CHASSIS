@@ -176,9 +176,32 @@ void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo1ITs)
 	}
 }
 
+int16_t float_to_int16_3dp(float x)
+{
+    return (int16_t)lroundf(x * 1000.0f);
+}
+
+void msg_to_Host(float odx,float ody,float odz)
+{
+	static int16_t odx_3p,ody_3p,odz_3p;
+	odx_3p = float_to_int16_3dp(odx);
+	ody_3p = float_to_int16_3dp(ody);
+	odz_3p = float_to_int16_3dp(odz);
+	
+	static uint8_t txdata[8] ;
+	txdata[0] = (int16_t)odx_3p >> 8;
+	txdata[1] = (int16_t)odx_3p;
+	txdata[2] = (int16_t)ody_3p >> 8;
+	txdata[3] = (int16_t)ody_3p;
+	txdata[4] = (int16_t)odz_3p >> 8;
+	txdata[5] = (int16_t)odz_3p;
+	
+	fdcanx_send_data(&hfdcan2, 0x051, txdata, 8); // speed mode
+}
+
 void chassis_automode_msg_handle(void)
 {
- can_spd_input.vx =(int16_t)(rx_fifo1_data[1]<<8|rx_fifo1_data[0]);
- can_spd_input.vy =(int16_t)(rx_fifo1_data[3]<<8|rx_fifo1_data[2]);
- can_spd_input.vw =(int16_t)(rx_fifo1_data[5]<<8|rx_fifo1_data[4]);
+	can_spd_input.vx =(int16_t)(rx_fifo1_data[1]<<8|rx_fifo1_data[0]);
+	can_spd_input.vy =(int16_t)(rx_fifo1_data[3]<<8|rx_fifo1_data[2]);
+	can_spd_input.vw =(int16_t)(rx_fifo1_data[5]<<8|rx_fifo1_data[4]);
 }

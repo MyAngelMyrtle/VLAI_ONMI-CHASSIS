@@ -34,6 +34,7 @@ void chassis_task(void)
   /* 发送电流，控制电机 */
   Chassis_ctrl();
   chassis_odom_calc();
+	msg_to_Host(chassis.odom.x,chassis.odom.y,chassis.odom.z);
   task_delay(3);
 }
 
@@ -46,15 +47,13 @@ void chassis_init(void)
 
   for (uint8_t i = 0; i < 4; i++)
   {
-    PID_struct_init(&pid_chassis_spd[i], 7, 7, 0.5f,
-                    0.00003f, 0.0f, 0, 0, 0, Integral_Limit);
+    PID_struct_init(&pid_chassis_spd[i], 2, 2, 0.0f,
+                    0.000024f, 0.02f, 0.05f, 0, 0, Integral_Limit);
   }
-  scale.scale_ch1 = 0.004f;
-  scale.scale_ch2 = 0.004f;
 
   Drv_PROTECT.Base.Control_Fun = Chassis_MODE_PROTECT_callback;
   Drv_REMOTER.Base.Control_Fun = Chassis_MODE_REMOTER_callback;
-  Drv_AUTO.Base.Control_Fun = Chassis_MODE_AUTO_callback;
+  Drv_AUTO.Base.Control_Fun 	 = Chassis_MODE_AUTO_callback;
 }
 
 static Chassis_Base *Chassis_mode_switch(void)
@@ -124,30 +123,31 @@ static void Chassis_MODE_REMOTER_callback(void)
   chassis.spd_input.vx = chassis.spd_input.vx;
   chassis.spd_input.vy = chassis.spd_input.vy;
   chassis.spd_input.vw = chassis.spd_input.vw;
-  //	if(disable_flag == 0)
-  //	{
-  //		for(uint8_t i=0;i<4;i++)
-  //		{
-  //		task_delay(100);
+
   DM_ENABLE(&hfdcan1, 0x021);
-  //		task_delay(100);
   DM_ENABLE(&hfdcan1, 0x022);
-  //		task_delay(100);
   DM_ENABLE(&hfdcan1, 0x023);
-  //		task_delay(100);
   DM_ENABLE(&hfdcan1, 0x024);
   disable_flag = 1;
-  //		}
-  //	}
+
   chassis_spd_distribution();
   chassis_pid_calcu();
 }
 
 static void Chassis_MODE_AUTO_callback(void)
 {
-  chassis.spd_input.vx = chassis.spd_input.vx;
-  chassis.spd_input.vy = chassis.spd_input.vy;
-  chassis.spd_input.vw = chassis.spd_input.vw;
+	if(chassis.host_online > 5000)
+	{
+		chassis.spd_input.vx = 0;
+		chassis.spd_input.vy = 0;
+		chassis.spd_input.vw = 0;
+	}
+	else
+	{
+		chassis.spd_input.vx = chassis.spd_input.vx;
+		chassis.spd_input.vy = chassis.spd_input.vy;
+		chassis.spd_input.vw = chassis.spd_input.vw;
+	}
 	/* 构造 8 字节数据：按照 chassis_automode_msg_handle 的解析方式（大端 int16）组织 */
 	uint8_t tx_data[8];
 	/* 将当前期望速度打包为 int16（若需更高精度可乘以比例因子后再转换） */
@@ -156,8 +156,18 @@ static void Chassis_MODE_AUTO_callback(void)
   DM_ENABLE(&hfdcan1, 0x023);
   DM_ENABLE(&hfdcan1, 0x024);
 	fdcanx_send_data(&hfdcan1, 0x050, tx_data, 8);
+	
+	chassis.host_can_flag_handle = can_spd_input.rc_flag;
+	
+	if(chassis.host_can_flag_handle != chassis.host_can_flag_handle_last)
+		chassis.host_online = 0;
+	else if(chassis.host_online < 5000)
+		chassis.host_online++;
+		
+	
   chassis_spd_distribution();
   chassis_pid_calcu(); // 舵轮pid计算
+	chassis.host_can_flag_handle_last = chassis.host_can_flag_handle;
 }
 
 void chassis_spd_distribution(void)
@@ -167,7 +177,7 @@ void chassis_spd_distribution(void)
   for (uint8_t j = 0; j < 4; j++)
   {
     chassis.wheel_spd_ref[j] = chassis.wheel_spd_input[j];
-    chassis.wheel_spd_ref[j] = data_limit(chassis.wheel_spd_ref[j], 8.0f, -8.0f); // 电机转速最高到8900
+    chassis.wheel_spd_ref[j] = data_limit(chassis.wheel_spd_ref[j], 2.4f, -2.4f); // 电机转速最高到8900
   }
 
   chassis.odom.x += chassis.spd_fdb.vx * 0.001f;
@@ -180,6 +190,10 @@ void chassis_pid_calcu(void)
   {
     chassis.wheel_spd_fdb[i] = chassis_moto_data[i].spd;
     chassis.speed_send[i] = pid_calc(&pid_chassis_spd[i], chassis.wheel_spd_fdb[i], chassis.wheel_spd_ref[i]);
+//		if(chassis.wheel_spd_ref[i]<=0.05f)
+//		{
+//			chassis.speed_send[i] = 0;
+//		}
   }
 }
 
@@ -221,10 +235,12 @@ double last_single_wheel_move[4];
 uint16_t wheel_pos_current[4];
 uint16_t wheel_pos_last[4];
 int16_t wheel_pos_move[4];
+uint32_t last_odom_ms = 0;
+uint32_t now_ms = 0;
+
 void chassis_odom_calc(void)
 {
   /* 基于时间的里程计采样，优先使用系统节拍（HAL_GetTick）而不是计数器内插 */
-  static uint32_t last_odom_ms = 0;
   static uint8_t last_all_online = 0;
 	float ds[4];
   uint8_t online_cnt = 0;
@@ -247,12 +263,12 @@ void chassis_odom_calc(void)
   }
   last_all_online = (online_cnt == 4);
 
-  uint32_t now_ms = HAL_GetTick();
-  const uint32_t ODOM_INTERVAL_MS = 100; /* 采样间隔（ms），可根据需要调整） */
+  now_ms = HAL_GetTick();
+  const uint32_t ODOM_INTERVAL_MS = 30; /* 采样间隔（ms），可根据需要调整） */
 
   if (last_all_online && (now_ms - last_odom_ms >= ODOM_INTERVAL_MS))
   {
-    float L = 0.291f; /* 底盘几何参数 */
+    float L = 0.29162f; /* 底盘几何参数 */
 
     for (uint8_t i = 0; i < 4; i++)
     {
@@ -266,21 +282,48 @@ void chassis_odom_calc(void)
       wheel_pos_move[i] = (int16_t)delta;
 
       /* 计数增量转换为线位移（meters） */
-      float d_m = (float)wheel_pos_move[i] * (float)ratio;
-      ds[i] = d_m;
-      single_wheel_move[i] += d_m;
+      ds[i] = (float)wheel_pos_move[i] * (float)ratio;
+
+      single_wheel_move[i] += ds[i];
       last_single_wheel_move[i] = single_wheel_move[i];
       wheel_pos_last[i] = wheel_pos_current[i];
     }
 
-    float dx_body = (-ds[0] + ds[1] + ds[2] - ds[3]) * 0.25f * SQRT2_F * 0.5f;
-    float dy_body = (ds[0] + ds[1] - ds[2] - ds[3]) * 0.25f * SQRT2_F * 0.5f;
-//    float theta_mid = chassis.odom.z + 0.5f * dtheta;
-
-    chassis.odom.x += dx_body; //- s * dy_body;
-    chassis.odom.y += dx_body;// + c * dy_body;
-//    chassis.odom.z += dtheta;
+    float dx_body = (-ds[0] + ds[1] + ds[2] - ds[3]) * 0.25f * SQRT2_F;
+		float dy_body = ( ds[0] + ds[1] - ds[2] - ds[3]) * 0.25f * SQRT2_F;
+    float dtheta  = -( ds[0] + ds[1] + ds[2] + ds[3]) / (4.0f * L);
+		
+    while (chassis.odom.z >= PI_F)
+    {
+        chassis.odom.z -= 2*PI_F;
+    }
+    while (chassis.odom.z < -PI_F)
+    {
+        chassis.odom.z += 2*PI_F;
+    }
+		
+    odom_update(&chassis.odom,dx_body,dy_body,dtheta);
 
     last_odom_ms = now_ms;
   }
+}
+
+void odom_update(odom_t *odom, float dx_body, float dy_body, float dtheta)
+{
+    // 1. 累计角
+    odom->z -= dtheta;
+
+    // 2. 使用旋转增量公式 θ + dθ/2，提高大步长旋转精度
+    float theta_mid = odom->z - dtheta / 2.0f;
+
+    float c = cosf(theta_mid);  // 转成数学逆时针方向
+    float s = sinf(theta_mid);
+
+    // 3. 底盘坐标系 → 世界坐标系
+    float dx_world = c * dx_body + s * dy_body;
+    float dy_world = -s * dx_body + c * dy_body;
+
+    // 4. 累加到世界坐标
+    odom->x += dx_world*0.943f;
+    odom->y += dy_world*0.943f;
 }
