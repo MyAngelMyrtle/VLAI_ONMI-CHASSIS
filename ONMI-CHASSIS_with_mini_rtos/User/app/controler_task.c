@@ -14,7 +14,7 @@ ctrl_mode_e ctrl_mode;
 #define MaxCH 1792
 #define MinCH 192
 
-const float sc = 0.02f;
+const float sc = 0.01f;
 
 uint8_t ch_signal_effective[10];
   
@@ -60,9 +60,9 @@ void remoteHandler(void)
 	}
 	else if(ctrl_mode == AUTO_MODE)
 	{
-		chassis.spd_input.vy = can_spd_input.vy*0.008f;
-		chassis.spd_input.vx = can_spd_input.vx*0.008f;
-		chassis.spd_input.vw = can_spd_input.vw*0.008f;
+		chassis.spd_input.vy = can_spd_input.vy*sc;
+		chassis.spd_input.vx = can_spd_input.vx*sc;
+		chassis.spd_input.vw = can_spd_input.vw*sc;
 		
 		if(can_spd_input.updown == 2)
 			HAL_GPIO_WritePin(GPIOA,GPIO_PIN_2,GPIO_PIN_RESET);
