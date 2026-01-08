@@ -2,6 +2,9 @@
 #include "drv_8030.h"
 #include "chassis_task.h"
 
+
+s8030_moto_t moto[2];
+
 /**
   * @brief  配置节点2为可操作状态（NMT命令）
   * @param  hfdcan CAN句柄指针

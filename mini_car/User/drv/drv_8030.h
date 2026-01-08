@@ -9,8 +9,7 @@ typedef struct
 	uint16_t speed;
 }s8030_moto_t;
 
-s8030_moto_t moto1;
-s8030_moto_t moto2;
+extern s8030_moto_t moto[2];
 
 void MotoSetOperational(hcan_t *hfdcan);
 void MotoSetSpeedMode(hcan_t *hfdcan, uint8_t node_id);
@@ -24,6 +23,5 @@ void MotoConfigureTPDO1(hcan_t *hfdcan, uint8_t node_id);
 void MotoConfigureTPDO2(hcan_t *hfdcan, uint8_t node_id);
 void MotoSendSyncFrame(hcan_t *hfdcan);
 void MotoSpeedConfigExample(hcan_t *hfdcan);
-
 
 #endif

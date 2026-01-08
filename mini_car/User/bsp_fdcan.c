@@ -1,27 +1,9 @@
 #include "bsp_fdcan.h"
-#include "drv_dmmotor.h"
+#include "drv_8030.h"
 #include "chassis_task.h"
 FDCAN_RxHeaderTypeDef rx_fifo0_message, rx_fifo1_message;
 uint8_t rx_fifo0_data[64], rx_fifo1_data[64];
 can_spd_input_t can_spd_input;
-/**
-************************************************************************
-* @brief:      	bsp_can_init(void)
-* @param:       void
-* @retval:     	void
-* @details:    	CAN 使能
-************************************************************************
-**/
-void bsp_can_init(void)
-{
-//	can_filter_init();
-//	HAL_FDCAN_Start(&hfdcan1);                               //开启FDCAN
-//	HAL_FDCAN_Start(&hfdcan2);
-//	HAL_FDCAN_Start(&hfdcan3);
-//	HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0);
-//	HAL_FDCAN_ActivateNotification(&hfdcan2, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0);
-//	HAL_FDCAN_ActivateNotification(&hfdcan3, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0);
-}
 /**
 ************************************************************************
 * @brief:      	can_filter_init(void)
@@ -44,18 +26,6 @@ void can_filter_init(void)
 	fdcan_filter.FilterIndex = 1;
 	fdcan_filter.FilterType = FDCAN_FILTER_DUAL;
 	fdcan_filter.FilterID1 = 0x282;
-	fdcan_filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0; // 通过过滤后给邮箱0
-	HAL_FDCAN_ConfigFilter(&hfdcan1, &fdcan_filter);
-	fdcan_filter.IdType = FDCAN_STANDARD_ID; // 标准帧
-	fdcan_filter.FilterIndex = 2;
-	fdcan_filter.FilterType = FDCAN_FILTER_DUAL;
-	fdcan_filter.FilterID1 = 0x033;
-	fdcan_filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0; // 通过过滤后给邮箱0
-	HAL_FDCAN_ConfigFilter(&hfdcan1, &fdcan_filter);
-	fdcan_filter.IdType = FDCAN_STANDARD_ID; // 标准帧
-	fdcan_filter.FilterIndex = 3;
-	fdcan_filter.FilterType = FDCAN_FILTER_DUAL;
-	fdcan_filter.FilterID1 = 0x034;
 	fdcan_filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0; // 通过过滤后给邮箱0
 	HAL_FDCAN_ConfigFilter(&hfdcan1, &fdcan_filter);
 
@@ -126,24 +96,14 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 		{
 			switch (rx_fifo0_message.Identifier)
 			{
-			case (0x031):
+			case (0x182):
 			{
-				mf_DM_MOTOR_HANDLE(rx_fifo0_data, &chassis_moto_data[0],rx_fifo0_message.Identifier);
+				TPDO_msg_get();
 				break;
 			}
-			case (0x032):
+			case (0x282):
 			{
-				mf_DM_MOTOR_HANDLE(rx_fifo0_data, &chassis_moto_data[1],rx_fifo0_message.Identifier);
-				break;
-			}
-			case (0x033):
-			{
-				mf_DM_MOTOR_HANDLE(rx_fifo0_data, &chassis_moto_data[2],rx_fifo0_message.Identifier);
-				break;
-			}
-			case (0x034):
-			{
-				mf_DM_MOTOR_HANDLE(rx_fifo0_data, &chassis_moto_data[3],rx_fifo0_message.Identifier);
+				TPDO_msg_get();
 				break;
 			}
 			default:
@@ -209,6 +169,7 @@ void chassis_automode_msg_handle(void)
 
 void TPDO_msg_get(void)
 {
-	
+	moto[0].speed = (uint16_t)(rx_fifo0_data[1]<<8|rx_fifo0_data[0]);
+	moto[1].speed = (uint16_t)(rx_fifo0_data[3]<<8|rx_fifo0_data[2]);
 }
 

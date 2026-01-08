@@ -4,6 +4,7 @@
 #include "EZ_RTOS.h"
 #include "pid.h"
 #include "controler_task.h"
+#include "drv_8030.h"
 // Simplified RTOS in C with task delay support
 #include <stdint.h>
 #include <stdio.h>
@@ -40,14 +41,14 @@ void chassis_task(void)
 
 void chassis_init(void)
 {
-  for (uint8_t i = 0; i < 4; i++)
+  for (uint8_t i = 0; i < 2; i++)
   {
     chassis_moto_data[i].spd = 0;
   }
 
-  for (uint8_t i = 0; i < 4; i++)
+  for (uint8_t i = 0; i < 2; i++)
   {
-    PID_struct_init(&pid_chassis_spd[i], 5, 5, 0.005f,
+    PID_struct_init(&pid_chassis_spd[i], 30, 30, 0.005f,
                     0.000027f, 0.0f, 0.05f, 0, 0, Integral_Limit);
   }
 
@@ -99,20 +100,11 @@ static void Chassis_MODE_PROTECT_callback(void)
   chassis.spd_input.vy = 0;
   chassis.spd_input.vw = 0;
   //		speed_ctrl(&hfdcan1, 0x021+i, 0);
-  task_delay(500);
-  DM_DISABLE(&hfdcan1, 0x021);
-  task_delay(500);
-  DM_DISABLE(&hfdcan1, 0x022);
-  task_delay(500);
-  DM_DISABLE(&hfdcan1, 0x023);
-  task_delay(500);
-  DM_DISABLE(&hfdcan1, 0x024);
-	task_delay(500);
   disable_flag = 0;
 
   //  memset(&chassis.speed_send, 0, sizeof(chassis.speed_send));
 
-  for (uint8_t i = 0; i < 4; i++)
+  for (uint8_t i = 0; i < 2; i++)
   {
     pid_chassis_spd[i].iout = 0;
   }
@@ -124,10 +116,6 @@ static void Chassis_MODE_REMOTER_callback(void)
   chassis.spd_input.vy = chassis.spd_input.vy;
   chassis.spd_input.vw = chassis.spd_input.vw;
 
-  DM_ENABLE(&hfdcan1, 0x021);
-  DM_ENABLE(&hfdcan1, 0x022);
-  DM_ENABLE(&hfdcan1, 0x023);
-  DM_ENABLE(&hfdcan1, 0x024);
   disable_flag = 1;
 
   chassis_spd_distribution();
@@ -151,10 +139,7 @@ static void Chassis_MODE_AUTO_callback(void)
 	/* 构造 8 字节数据：按照 chassis_automode_msg_handle 的解析方式（大端 int16）组织 */
 	uint8_t tx_data[8];
 	/* 将当前期望速度打包为 int16（若需更高精度可乘以比例因子后再转换） */
-	DM_ENABLE(&hfdcan1, 0x021);
-  DM_ENABLE(&hfdcan1, 0x022);
-  DM_ENABLE(&hfdcan1, 0x023);
-  DM_ENABLE(&hfdcan1, 0x024);
+
 	fdcanx_send_data(&hfdcan1, 0x050, tx_data, 8);
 	
 	chassis.host_can_flag_handle = can_spd_input.rc_flag;
@@ -164,7 +149,6 @@ static void Chassis_MODE_AUTO_callback(void)
 	else if(chassis.host_online < 5000)
 		chassis.host_online++;
 		
-	
   chassis_spd_distribution();
   chassis_pid_calcu(); // 舵轮pid计算
 	chassis.host_can_flag_handle_last = chassis.host_can_flag_handle;
@@ -172,51 +156,41 @@ static void Chassis_MODE_AUTO_callback(void)
 
 void chassis_spd_distribution(void)
 {
-  mecanum_calc(chassis.spd_input.vx, chassis.spd_input.vy, chassis.spd_input.vw, chassis.wheel_spd_input);
+  mini_car_calc(chassis.spd_input.vy, chassis.spd_input.vw, chassis.wheel_spd_input);
   /* 速度重分配 并 限幅 */
-  for (uint8_t j = 0; j < 4; j++)
+  for (uint8_t j = 0; j < 2; j++)
   {
     chassis.wheel_spd_ref[j] = chassis.wheel_spd_input[j];
-    chassis.wheel_spd_ref[j] = data_limit(chassis.wheel_spd_ref[j], 3.8f, -3.8f); // 电机转速最高到8900
+    chassis.wheel_spd_ref[j] = data_limit(chassis.wheel_spd_ref[j], 30.8f, -30.8f); // 电机转速最高到8900
   }
-
-  chassis.odom.x += chassis.spd_fdb.vx * 0.001f;
-  chassis.odom.y += chassis.spd_fdb.vy * 0.001f;
 }
 
 void chassis_pid_calcu(void)
 {
-  for (uint8_t i = 0; i < 4; i++)
+  for (uint8_t i = 0; i < 2; i++)
   {
-    chassis.wheel_spd_fdb[i] = chassis_moto_data[i].spd;
+    chassis.wheel_spd_fdb[i] = moto[i].speed;
     chassis.speed_send[i] = pid_calc(&pid_chassis_spd[i], chassis.wheel_spd_fdb[i], chassis.wheel_spd_ref[i]);
-//		if(chassis.wheel_spd_ref[i]<=0.05f)
-//		{
-//			chassis.speed_send[i] = 0;
-//		}
   }
 }
 
 void Chassis_ctrl(void)
 {
-
-  for (uint8_t i = 0; i < 4; i++)
+  for (uint8_t i = 0; i < 2; i++)
   {
     if (ctrl_mode == PROTECT_MODE)
-      speed_ctrl(&hfdcan1, 0x021 + i, 0);
+      MotoSetTargetSpeed(&hfdcan1, 0x021 + i, 0);
     else
       speed_ctrl(&hfdcan1, 0x021 + i, chassis.speed_send[i]);
   }
 }
 
-void mecanum_calc(float vx, float vy, float vw, float speed[])
+void mini_car_calc(float vy, float vw, float speed[])
 {
-  float wheel_rpm[4];
-  wheel_rpm[0] = -vx + vy + vw;
-  wheel_rpm[1] = vx + vy + vw;
-  wheel_rpm[2] = vx - vy + vw;
-  wheel_rpm[3] = -vx - vy + vw;
-  memcpy(speed, wheel_rpm, 4 * sizeof(float));
+  float wheel_rpm[2];
+  wheel_rpm[0] =vy + vw;
+  wheel_rpm[1] = vy + vw;
+  memcpy(speed, wheel_rpm, 2 * sizeof(float));
 }
 
 float data_limit(float data, float max, float min)
@@ -230,11 +204,11 @@ float data_limit(float data, float max, float min)
 }
 
 double ratio = 0.15l * PI_F / ENCODER_MAX * 4.0l;
-double single_wheel_move[4];
-double last_single_wheel_move[4];
-uint16_t wheel_pos_current[4];
-uint16_t wheel_pos_last[4];
-int16_t wheel_pos_move[4];
+double single_wheel_move[2];
+double last_single_wheel_move[2];
+uint16_t wheel_pos_current[2];
+uint16_t wheel_pos_last[2];
+int16_t wheel_pos_move[2];
 uint32_t last_odom_ms = 0;
 uint32_t now_ms = 0;
 
@@ -242,18 +216,18 @@ void chassis_odom_calc(void)
 {
   /* 基于时间的里程计采样，优先使用系统节拍（HAL_GetTick）而不是计数器内插 */
   static uint8_t last_all_online = 0;
-	float ds[4];
+	float ds[2];
   uint8_t online_cnt = 0;
 	
-  for (uint8_t i = 0; i < 4; i++)
+  for (uint8_t i = 0; i < 2; i++)
   {
     if (chassis_moto_data[i].online)
       online_cnt++;
   }
 
-  if (online_cnt == 4 && last_all_online == 0)
+  if (online_cnt == 2 && last_all_online == 0)
   {
-    for (uint8_t i = 0; i < 4; i++)
+    for (uint8_t i = 0; i < 2; i++)
     {
       wheel_pos_last[i] = chassis_moto_data[i].pos;
       single_wheel_move[i] = 0.0l;
@@ -261,7 +235,7 @@ void chassis_odom_calc(void)
     }
     last_odom_ms = HAL_GetTick();
   }
-  last_all_online = (online_cnt == 4);
+  last_all_online = (online_cnt == 2);
 
   now_ms = HAL_GetTick();
   const uint32_t ODOM_INTERVAL_MS = 30; /* 采样间隔（ms），可根据需要调整） */
@@ -270,7 +244,7 @@ void chassis_odom_calc(void)
   {
     float L = 0.29162f; /* 底盘几何参数 */
 
-    for (uint8_t i = 0; i < 4; i++)
+    for (uint8_t i = 0; i < 2; i++)
     {
       wheel_pos_current[i] = chassis_moto_data[i].pos;
       /* 处理编码器计数环绕：使用 16-bit 环绕修正，得到 signed delta（counts） */
@@ -289,9 +263,9 @@ void chassis_odom_calc(void)
       wheel_pos_last[i] = wheel_pos_current[i];
     }
 
-    float dx_body = (-ds[0] + ds[1] + ds[2] - ds[3]) * 0.25f * SQRT2_F;
-		float dy_body = ( ds[0] + ds[1] - ds[2] - ds[3]) * 0.25f * SQRT2_F;
-    float dtheta  = -( ds[0] + ds[1] + ds[2] + ds[3]) / (4.0f * L);
+    float dx_body = (-ds[0] + ds[1]) * 0.5f * SQRT2_F;
+		float dy_body = ( ds[0] + ds[1]) * 0.5f * SQRT2_F;
+    float dtheta  = -( ds[0] + ds[1]) / (2.0f * L);
 		
     while (chassis.odom.z >= PI_F)
     {

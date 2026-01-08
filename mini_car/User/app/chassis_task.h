@@ -121,7 +121,7 @@ void chassis_init(void);
 void chassis_spd_distribution(void);
 void chassis_pid_calcu(void);
 void Chassis_ctrl(void);
-void mecanum_calc(float vx, float vy, float vw, float speed[]);
+void mini_car_calc(float vy, float vw, float speed[]);
 float data_limit(float data, float max, float min);
 void Chassis_ctrl(void);
 void chassis_odom_calc(void);
