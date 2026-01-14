@@ -132,7 +132,7 @@ float chassis_calc_dtheta_from_wheelpos(const int16_t wheel_pos_move[4], float L
 /* 预测使用 wheel_pos_move 更新后的航向角（弧度），不改变 chassis.odom.z */
 float chassis_predict_yaw_from_wheelpos(const int16_t wheel_pos_move[4], float L);
 
-#define PI_F        3.14159265l
+#define PI        3.141592f
 #define SQRT2_F     1.41421356l
 #define ENCODER_MAX 65535.0l
 #define RAD_2_ANGEL 57.2957795l

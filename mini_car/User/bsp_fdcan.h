@@ -12,7 +12,8 @@ uint8_t fdcanx_receive(hcan_t *hfdcan, uint16_t *rec_id, uint8_t *buf);
 void fdcan1_rx_callback(void);
 void fdcan2_rx_callback(void);
 void fdcan3_rx_callback(void);
-void TPDO_msg_get(void);
+void spd0_get(void);
+void spd1_get(void);
 void chassis_automode_msg_handle(void);
 void msg_to_Host(float odx,float ody,float odz);
 

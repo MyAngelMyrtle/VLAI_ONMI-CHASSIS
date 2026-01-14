@@ -2,7 +2,7 @@
 #include "drv_8030.h"
 #include "chassis_task.h"
 FDCAN_RxHeaderTypeDef rx_fifo0_message, rx_fifo1_message;
-uint8_t rx_fifo0_data[64], rx_fifo1_data[64];
+uint8_t rx_fifo0_data[8], rx_fifo1_data[8];
 can_spd_input_t can_spd_input;
 /**
 ************************************************************************
@@ -19,14 +19,15 @@ void can_filter_init(void)
 	fdcan_filter.IdType = FDCAN_STANDARD_ID; // 标准帧
 	fdcan_filter.FilterIndex = 0;
 	fdcan_filter.FilterType = FDCAN_FILTER_DUAL;
-	fdcan_filter.FilterID1 = 0x182;
+	fdcan_filter.FilterID1 = 0x581;
 	fdcan_filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0; // 通过过滤后给邮箱0
 	HAL_FDCAN_ConfigFilter(&hfdcan1, &fdcan_filter);
+	
 	fdcan_filter.IdType = FDCAN_STANDARD_ID; // 标准帧
 	fdcan_filter.FilterIndex = 1;
 	fdcan_filter.FilterType = FDCAN_FILTER_DUAL;
-	fdcan_filter.FilterID1 = 0x282;
-	fdcan_filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0; // 通过过滤后给邮箱0
+	fdcan_filter.FilterID1 = 0x583;
+	fdcan_filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO1; // 通过过滤后给邮箱0
 	HAL_FDCAN_ConfigFilter(&hfdcan1, &fdcan_filter);
 
 	HAL_FDCAN_ConfigGlobalFilter(&hfdcan1, FDCAN_REJECT, FDCAN_REJECT, FDCAN_REJECT_REMOTE, FDCAN_REJECT_REMOTE);
@@ -96,14 +97,9 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 		{
 			switch (rx_fifo0_message.Identifier)
 			{
-			case (0x182):
+			case (0x581):
 			{
-				TPDO_msg_get();
-				break;
-			}
-			case (0x282):
-			{
-				TPDO_msg_get();
+				spd0_get();
 				break;
 			}
 			default:
@@ -119,6 +115,19 @@ void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo1ITs)
   if ((RxFifo1ITs & FDCAN_IT_RX_FIFO1_NEW_MESSAGE) != RESET)
 	{
 		HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO1, &rx_fifo1_message, rx_fifo1_data);
+		if (hfdcan->Instance == FDCAN1)
+		{
+			switch (rx_fifo1_message.Identifier)
+			{
+			case (0x583):
+			{
+				spd1_get();
+				break;
+			}
+			default:
+				break;
+			}
+		}
 		if (hfdcan->Instance == FDCAN2)
 		{
 			switch (rx_fifo1_message.Identifier)
@@ -167,9 +176,28 @@ void chassis_automode_msg_handle(void)
 	can_spd_input.updown = rx_fifo1_data[7];
 }
 
-void TPDO_msg_get(void)
+/**
+ * @brief  获取编码器单圈值
+ * @param  void
+ * @retval None
+ * @details 从 TPDO 消息中提取编码器位置数据
+ *          字节 4-5: 电机0编码器值（16位，小端序）
+ *          字节 6-7: 电机1编码器值（16位，小端序）
+ */
+ 
+uint32_t get_cnt[2] = {0,0};
+void spd0_get(void)
 {
-	moto[0].speed = (uint16_t)(rx_fifo0_data[1]<<8|rx_fifo0_data[0]);
-	moto[1].speed = (uint16_t)(rx_fifo0_data[3]<<8|rx_fifo0_data[2]);
+	if(rx_fifo0_message.Identifier == 0x581)
+	moto[0].speed = (int16_t)(rx_fifo0_data[5]<<8|rx_fifo0_data[4]);
+	moto[0].online = 1;
+	get_cnt[0]++;
 }
 
+void spd1_get(void)
+{
+	if(rx_fifo1_message.Identifier == 0x583)
+	moto[1].speed = -(int16_t)(rx_fifo1_data[5]<<8|rx_fifo1_data[4]);
+	moto[1].online = 1;
+	get_cnt[1]++;
+}

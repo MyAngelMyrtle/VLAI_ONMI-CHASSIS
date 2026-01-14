@@ -46,8 +46,8 @@ void remoteHandler(void)
 	 ch_signal_effective[3] = (remoter.rc.ch[3] < (defaultCH - 20)||remoter.rc.ch[3] > (defaultCH + 20))?1:0;
 	 
 	 chassis.spd_input.vy = (float)((ch_signal_effective[1])?(remoter.rc.ch[1] - defaultCH)*sc:0);
-	 chassis.spd_input.vx = (float)((ch_signal_effective[0])?(remoter.rc.ch[0] - defaultCH)*sc:0);
-	 chassis.spd_input.vw = (float)((ch_signal_effective[3])?(remoter.rc.ch[3] - defaultCH)*sc:0);
+	 chassis.spd_input.vx = (float)((ch_signal_effective[3])?(remoter.rc.ch[3] - defaultCH)*sc:0);
+	 chassis.spd_input.vw = (float)((ch_signal_effective[0])?(remoter.rc.ch[0] - defaultCH)*sc:0);
 	 
 	 if(remoter.rc.ch[4] > (defaultCH + 200))
 			HAL_GPIO_WritePin(GPIOA,GPIO_PIN_2,GPIO_PIN_RESET);
