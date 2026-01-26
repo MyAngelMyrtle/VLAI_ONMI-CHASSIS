@@ -161,8 +161,8 @@ void chassis_spd_distribution(void)
 {
   mini_car_calc(chassis.spd_input.vy, chassis.spd_input.vw, chassis.wheel_spd_input);
   /* 速度重分配 并 限幅 */
-    chassis.wheel_spd_ref[0] = chassis.wheel_spd_input[0];
-		chassis.wheel_spd_ref[1] = -chassis.wheel_spd_input[1];
+    chassis.wheel_spd_ref[0] = 1.5f*chassis.wheel_spd_input[0];
+		chassis.wheel_spd_ref[1] = -1.5f*chassis.wheel_spd_input[1];
 //    chassis.wheel_spd_ref[j] = data_limit(chassis.wheel_spd_ref[j], 100.8f, -100.8f); // 电机转速最高到8900
 }
 
