@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-
+#include "RobStride.h"
 chassis_t chassis;
 scale_t scale;
 

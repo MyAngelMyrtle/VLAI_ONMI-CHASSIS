@@ -36,6 +36,7 @@
 "ctrboard-h7_fdcan\controler_task.o"
 "ctrboard-h7_fdcan\drv_dmmotor.o"
 "ctrboard-h7_fdcan\drv_8030.o"
+"ctrboard-h7_fdcan\robstride01.o"
 "ctrboard-h7_fdcan\pid.o"
 "ctrboard-h7_fdcan\ez_rtos.o"
 --strict --scatter "CtrBoard-H7_FDCAN\CtrBoard-H7_FDCAN.sct"

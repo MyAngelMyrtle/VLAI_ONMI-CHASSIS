@@ -3,6 +3,7 @@
 #include "chassis_task.h"
 FDCAN_RxHeaderTypeDef rx_fifo0_message, rx_fifo1_message;
 uint8_t rx_fifo0_data[8], rx_fifo1_data[8];
+head_t head;
 can_spd_input_t can_spd_input;
 /**
 ************************************************************************
@@ -40,6 +41,13 @@ void can_filter_init(void)
 	fdcan_filter.FilterType = FDCAN_FILTER_DUAL;
 	fdcan_filter.FilterID1 = 0x050;
 	fdcan_filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO1; // 通过过滤后给邮箱0
+	HAL_FDCAN_ConfigFilter(&hfdcan2, &fdcan_filter);
+
+	fdcan_filter.IdType = FDCAN_STANDARD_ID; // 标准帧
+	fdcan_filter.FilterIndex = 1;
+	fdcan_filter.FilterType = FDCAN_FILTER_DUAL;
+	fdcan_filter.FilterID1 = 0x051;
+	fdcan_filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0; // 通过过滤后给邮箱0
 	HAL_FDCAN_ConfigFilter(&hfdcan2, &fdcan_filter);
 
 	HAL_FDCAN_ConfigGlobalFilter(&hfdcan2, FDCAN_REJECT, FDCAN_REJECT, FDCAN_REJECT_REMOTE, FDCAN_REJECT_REMOTE);
@@ -101,6 +109,10 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 			{
 				spd0_get();
 				break;
+			}
+			case(0x051):
+			{
+				head_control_get();
 			}
 			default:
 				break;
@@ -173,6 +185,13 @@ void chassis_automode_msg_handle(void)
 	can_spd_input.vx =(int16_t)(rx_fifo1_data[1]<<8|rx_fifo1_data[0]);
 	can_spd_input.vy =(int16_t)(rx_fifo1_data[3]<<8|rx_fifo1_data[2]);
 	can_spd_input.vw =(int16_t)(rx_fifo1_data[5]<<8|rx_fifo1_data[4]);
+	
+	can_spd_input.vx = (can_spd_input.vx >= 800) ? 800 : 
+                   ((can_spd_input.vx <= -800) ? -800 : can_spd_input.vx);
+	can_spd_input.vy = (can_spd_input.vy >= 800) ? 800 : 
+                   ((can_spd_input.vy <= -800) ? -800 : can_spd_input.vy);
+	can_spd_input.vw = (can_spd_input.vw >= 800) ? 800 : 
+                   ((can_spd_input.vw <= -800) ? -800 : can_spd_input.vw);
 	can_spd_input.updown = rx_fifo1_data[7];
 }
 
@@ -200,4 +219,9 @@ void spd1_get(void)
 	moto[1].speed = -(int16_t)(rx_fifo1_data[5]<<8|rx_fifo1_data[4]);
 	moto[1].online = 1;
 	get_cnt[1]++;
+}
+
+void head_control_get(void)
+{
+	head.angel = rx_fifo0_data[3] << 24 | rx_fifo0_data[2] << 16 | rx_fifo0_data[1] << 8 | rx_fifo0_data[0];
 }

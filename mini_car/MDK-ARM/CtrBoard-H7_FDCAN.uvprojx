@@ -854,6 +854,11 @@
               <FileType>1</FileType>
               <FilePath>..\User\drv\drv_8030.c</FilePath>
             </File>
+            <File>
+              <FileName>Robstride01.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\User\drv\Robstride01.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

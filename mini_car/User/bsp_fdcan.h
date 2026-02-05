@@ -16,6 +16,7 @@ void spd0_get(void);
 void spd1_get(void);
 void chassis_automode_msg_handle(void);
 void msg_to_Host(float odx,float ody,float odz);
+void head_control_get(void);
 
 typedef struct
 {
@@ -26,6 +27,11 @@ typedef struct
 	uint8_t updown;
 }can_spd_input_t;
 
+typedef struct 
+{
+	float angel;
+	/* data */
+}head_t;
 
 
 extern can_spd_input_t can_spd_input;
